@@ -96,12 +96,17 @@ stop_member_async(Pid) ->
     parent :: parent(),
     pool_name :: pooler:pool_name(),
     pool_member_sup :: pool_member_sup(),
-    msg :: start_result() | undefined
+    msg :: start_result() | undefined,
+    wait_worker :: boolean()
 }).
 
 -spec init(start_spec()) -> {ok, #starter{}, {continue, start}}.
 init({PoolName, PoolMemberSup, Parent}) ->
-    {ok, #starter{pool_name = PoolName, pool_member_sup = PoolMemberSup, parent = Parent}, {continue, start}}.
+    {ok, #starter{
+        pool_name = PoolName, 
+        pool_member_sup = PoolMemberSup, 
+        parent = Parent,
+        wait_worker = persistent_term:get({pool_wait_worker, PoolName})}, {continue, start}}.
 
 handle_continue(
     start,
@@ -120,7 +125,14 @@ handle_cast(stop_member, #starter{msg = {_Me, Pid}, pool_member_sup = MemberSup}
     %% Cleanup the process and stop normally.
     supervisor:terminate_child(MemberSup, Pid),
     {stop, normal, State};
-handle_cast(accept_member, #starter{msg = Msg, parent = Parent, pool_name = PoolName} = State) ->
+handle_cast(accept_member, #starter{wait_worker = W, msg = Msg, parent = Parent, pool_name = PoolName} = State) ->
+    %% If wait_worker set, explicitly wait worker to be ready:
+    case {W, Msg} of
+        {true, {_, P}} when is_pid(P) ->
+            gen_server:call(P, wait, infinity);
+        _ ->
+            ok
+    end,
     %% Process creation has succeeded. Send the member to the pooler
     %% gen_server to be accepted. Pooler gen_server will notify
     %% us if the member was accepted or needs to cleaned up.

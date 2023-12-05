@@ -571,6 +571,7 @@ init(#{name := Name, max_count := MaxCount, init_count := InitCount, start_mfa :
         metrics_api = maps:get(metrics_api, P, folsom),
         queue_max = maps:get(queue_max, P, ?DEFAULT_POOLER_QUEUE_MAX)
     },
+    persistent_term:put({pool_wait_worker, Name}, maps:get(wait_worker, P, false)),
     MemberSup = pooler_pool_sup:build_member_sup_name(Name),
     Pool1 = set_member_sup(Pool, MemberSup),
     %% This schedules the next cull when the pool is configured for
