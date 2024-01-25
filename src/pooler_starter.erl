@@ -130,6 +130,11 @@ handle_cast(accept_member, #starter{wait_worker = W, msg = Msg, parent = Parent,
     case {W, Msg} of
         {true, {_, P}} when is_pid(P) ->
             gen_server:call(P, wait, infinity);
+
+        {WaitTimeout, {_, P}} when is_pid(P) andalso 
+            (is_integer(WaitTimeout) orelse (WaitTimeout == infinity)) ->
+            gen_server:call(P, wait, WaitTimeout);
+
         _ ->
             ok
     end,
